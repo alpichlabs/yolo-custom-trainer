@@ -44,30 +44,53 @@ class AlbumentationsPreTransform:
             return
 
         import albumentations as A
+        from albumentations.core.transforms_interface import DualTransform
 
         # Albumentations only needs bbox metadata when a transform can move pixels spatially.
         # Image-only transforms can run without bboxes, which avoids unnecessary conversions and
-        # keeps behavior close to Ultralytics' built-in `Albumentations` transform.
+        # keeps behavior close to Ultralytics' built-in `Albumentations` transform. The primary
+        # check below uses Albumentations' own `DualTransform` base class so newly added spatial
+        # transforms are detected automatically; the name set is a fallback for wrappers/custom
+        # objects whose class names match the official targets matrix.
         spatial_transforms = {
             "Affine",
             "AtLeastOneBBoxRandomCrop",
             "BBoxSafeRandomCrop",
             "CenterCrop",
+            "CoarseDropout",
+            "ConstrainedCoarseDropout",
+            "CopyAndPaste",
             "Crop",
             "CropAndPad",
+            "CropNonEmptyMaskIfExists",
             "D4",
             "ElasticTransform",
+            "Erasing",
+            "FrequencyMasking",
             "Flip",
             "GridDistortion",
+            "GridDropout",
+            "GridElasticDeform",
+            "GridMask",
             "HorizontalFlip",
+            "LetterBox",
             "LongestMaxSize",
+            "MaskDropout",
+            "Morphological",
+            "Mosaic",
             "NoOp",
             "OpticalDistortion",
+            "OverlayElements",
+            "Pad",
             "PadIfNeeded",
             "Perspective",
             "PiecewiseAffine",
+            "PixelDropout",
+            "PixelSpread",
             "RandomCrop",
             "RandomCropFromBorders",
+            "RandomCropNearBBox",
+            "RandomGridShuffle",
             "RandomResizedCrop",
             "RandomRotate90",
             "RandomScale",
@@ -78,10 +101,18 @@ class AlbumentationsPreTransform:
             "SafeRotate",
             "ShiftScaleRotate",
             "SmallestMaxSize",
+            "SquareSymmetry",
+            "ThinPlateSpline",
+            "TimeMasking",
+            "TimeReverse",
             "Transpose",
             "VerticalFlip",
+            "WaterRefraction",
+            "XYMasking",
         }
-        self.contains_spatial = any(t.__class__.__name__ in spatial_transforms for t in self.transforms)
+        self.contains_spatial = any(
+            isinstance(t, DualTransform) or t.__class__.__name__ in spatial_transforms for t in self.transforms
+        )
         if self.contains_spatial:
             # Ultralytics stores detection boxes as YOLO-style xywh normalized boxes at this
             # point, which matches Albumentations' "yolo" bbox format. `label_fields` keeps class

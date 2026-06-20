@@ -50,8 +50,18 @@ def test_image_only_pretransform_preserves_boxes() -> None:
     assert out["img"].shape[:2] == (100, 100)
 
 
-def test_at_least_one_bbox_random_crop_is_spatial() -> None:
-    transform = AlbumentationsPreTransform([A.AtLeastOneBBoxRandomCrop(height=40, width=40, p=1.0)])
+@pytest.mark.parametrize(
+    "augmentation",
+    [
+        A.AtLeastOneBBoxRandomCrop(height=40, width=40, p=1.0),
+        A.SquareSymmetry(p=1.0),
+        A.ThinPlateSpline(p=1.0),
+        A.Pad(padding=8, p=1.0),
+        A.ConstrainedCoarseDropout(p=1.0),
+    ],
+)
+def test_bbox_capable_dual_transforms_are_spatial(augmentation) -> None:
+    transform = AlbumentationsPreTransform([augmentation])
 
     assert transform.contains_spatial
 
