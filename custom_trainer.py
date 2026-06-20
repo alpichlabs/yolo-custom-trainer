@@ -124,6 +124,20 @@ class AlbumentationsPreTransform:
         else:
             self.transform = A.Compose(self.transforms)
 
+        self._log_enabled_transforms()
+
+    def _log_enabled_transforms(self) -> None:
+        """Print pretransform augmentations in the same spirit as Ultralytics' Albumentations log."""
+
+        try:
+            from ultralytics.utils import LOGGER, colorstr
+        except Exception:
+            return
+
+        enabled = [str(t).replace("always_apply=False, ", "") for t in self.transforms if getattr(t, "p", 0)]
+        if enabled:
+            LOGGER.info(colorstr("pretransform albumentations: ") + ", ".join(enabled))
+
     def __call__(self, labels: dict[str, Any]) -> dict[str, Any]:
         # Ultralytics transform objects all receive and return a mutable `labels` dict. The
         # important keys here are:
