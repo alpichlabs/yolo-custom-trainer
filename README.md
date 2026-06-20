@@ -26,6 +26,8 @@ pixi install -e mps
 pixi run -e mps inspect-pretransforms
 pixi run -e mps test
 pixi run -e mps train-example
+pixi run -e mps compare-pretransform
+pixi run -e mps compare-regular
 ```
 
 Linux NVIDIA CUDA must be selected explicitly:
@@ -35,6 +37,8 @@ pixi install -e cuda
 pixi run -e cuda inspect-pretransforms
 pixi run -e cuda test
 pixi run -e cuda train-example
+pixi run -e cuda compare-pretransform
+pixi run -e cuda compare-regular
 ```
 
 The CUDA environment installs `pytorch-cuda=12.4.*`, which is appropriate for CUDA-enabled machines such as A100 hosts when the driver supports that runtime.
@@ -62,6 +66,8 @@ model.train(
 ```
 
 `pretransform_augmentations` run right after a sample image and YOLO boxes are loaded, before mosaic and other Ultralytics training augmentations. `regular_augmentations` is a friendly alias for Ultralytics' current `augmentations` hyperparameter and runs in the normal post-mosaic Albumentations slot.
+
+When pretransforms are configured, the trainer logs them with a `pretransform albumentations:` line, similar to Ultralytics' existing regular `albumentations:` log output.
 
 `coco8.yaml` is only a tiny smoke-test dataset and does not include the COCO `car` class. For a COCO-style dataset that contains cars, add `classes=[2]` to train on cars only.
 
