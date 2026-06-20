@@ -1,0 +1,53 @@
+[workspace]
+authors = ["Alex"]
+channels = ["conda-forge", "pytorch", "nvidia"]
+description = "Custom Ultralytics YOLO26 trainer with pre-mosaic Albumentations."
+name = "yolo-custom-trainer"
+platforms = ["osx-arm64", "osx-64", "linux-64"]
+version = "0.1.0"
+
+[dependencies]
+python = ">=3.11,<3.13"
+pip = "*"
+numpy = "*"
+opencv = "*"
+pytest = "*"
+pytorch = "*"
+torchvision = "*"
+
+[pypi-dependencies]
+ultralytics = "*"
+albumentations = "*"
+
+[activation.env]
+MPLCONFIGDIR = "runs/matplotlib-cache"
+NO_ALBUMENTATIONS_UPDATE = "1"
+
+[feature.mps]
+platforms = ["osx-arm64", "osx-64"]
+
+[feature.mps.activation.env]
+YOLO_DEVICE = "mps"
+
+[feature.cuda]
+platforms = ["linux-64"]
+
+[feature.cuda.dependencies]
+pytorch = "*"
+torchvision = "*"
+pytorch-cuda = "12.4.*"
+
+[feature.cuda.activation.env]
+YOLO_DEVICE = "cuda"
+
+[environments]
+default = []
+mps = ["mps"]
+cuda = ["cuda"]
+
+[tasks]
+inspect-pretransforms = { cmd = "python scripts/verify_pretransforms.py", env = { PYTHONPATH = "." } }
+test = { cmd = "pytest -q", env = { PYTHONPATH = "." } }
+train-example = { cmd = "python scripts/train_smoke.py", env = { PYTHONPATH = "." } }
+compare-pretransform = { cmd = "python scripts/compare_pretransform_batches.py", env = { PYTHONPATH = "." } }
+compare-regular = { cmd = "python scripts/compare_regular_batches.py", env = { PYTHONPATH = "." } }
