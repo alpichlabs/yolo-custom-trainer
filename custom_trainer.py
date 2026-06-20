@@ -50,6 +50,7 @@ class AlbumentationsPreTransform:
         # keeps behavior close to Ultralytics' built-in `Albumentations` transform.
         spatial_transforms = {
             "Affine",
+            "AtLeastOneBBoxRandomCrop",
             "BBoxSafeRandomCrop",
             "CenterCrop",
             "Crop",

@@ -50,6 +50,12 @@ def test_image_only_pretransform_preserves_boxes() -> None:
     assert out["img"].shape[:2] == (100, 100)
 
 
+def test_at_least_one_bbox_random_crop_is_spatial() -> None:
+    transform = AlbumentationsPreTransform([A.AtLeastOneBBoxRandomCrop(height=40, width=40, p=1.0)])
+
+    assert transform.contains_spatial
+
+
 def test_regular_augmentations_alias_maps_to_ultralytics_augmentations() -> None:
     regular = [A.Blur(p=1.0)]
     captured = {}
