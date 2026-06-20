@@ -1,4 +1,18 @@
-"""Custom Ultralytics YOLO detection trainer with pre-mosaic Albumentations."""
+"""Custom Ultralytics YOLO detection trainer with pre-mosaic Albumentations.
+
+Ultralytics detection training has two important layers:
+
+1. A trainer (`DetectionTrainer`) decides which dataset class to instantiate.
+2. A dataset (`YOLODataset`) loads one image/label pair with `get_image_and_label()`, then
+   the dataset's transform chain applies mosaic, mixup, perspective, regular Albumentations,
+   flips, formatting, and batching.
+
+This module customizes those two seams only. The trainer swaps in a training-only dataset
+subclass, and that dataset applies optional Albumentations immediately after Ultralytics has
+loaded the image and created its `Instances` annotation object. Because Ultralytics' own mosaic,
+mixup, and cutmix transforms fetch their source images through `dataset.get_image_and_label()`,
+placing the transform there means every image they see has already been pretransformed.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +25,12 @@ import numpy as np
 
 
 class AlbumentationsPreTransform:
-    """Apply Albumentations to Ultralytics labels before the normal YOLO transform chain."""
+    """Apply Albumentations to Ultralytics labels before the normal YOLO transform chain.
+
+    Ultralytics already has a regular Albumentations hook later in `v8_transforms()`. That hook
+    runs after mosaic/perspective-style transforms. This class is for the earlier hook requested
+    here: transforms that change the raw loaded image before mosaic has a chance to compose it.
+    """
 
     def __init__(self, transforms: list[Any] | None = None, p: float = 1.0) -> None:
         self.transforms = transforms or []
@@ -24,6 +43,9 @@ class AlbumentationsPreTransform:
 
         import albumentations as A
 
+        # Albumentations only needs bbox metadata when a transform can move pixels spatially.
+        # Image-only transforms can run without bboxes, which avoids unnecessary conversions and
+        # keeps behavior close to Ultralytics' built-in `Albumentations` transform.
         spatial_transforms = {
             "Affine",
             "BBoxSafeRandomCrop",
@@ -58,6 +80,9 @@ class AlbumentationsPreTransform:
         }
         self.contains_spatial = any(t.__class__.__name__ in spatial_transforms for t in self.transforms)
         if self.contains_spatial:
+            # Ultralytics stores detection boxes as YOLO-style xywh normalized boxes at this
+            # point, which matches Albumentations' "yolo" bbox format. `label_fields` keeps class
+            # ids paired with boxes when Albumentations drops boxes outside a crop.
             self.transform = A.Compose(
                 self.transforms,
                 bbox_params=A.BboxParams(format="yolo", label_fields=["class_labels"], min_visibility=0.0),
@@ -80,6 +105,9 @@ class AlbumentationsPreTransform:
 
         instances = labels["instances"]
         cls = labels["cls"].reshape(-1, 1).astype(np.float32)
+        # `Instances` methods assume `segments` is an ndarray. Pure detection labels may not
+        # carry segments in synthetic tests or future Ultralytics changes, so create an empty
+        # segment array to keep bbox-only operations safe.
         if instances.segments is None:
             instances.segments = np.zeros((len(cls), 0, 2), dtype=np.float32)
         instances.convert_bbox("xywh")
@@ -94,6 +122,9 @@ class AlbumentationsPreTransform:
         new_cls = np.asarray(transformed["class_labels"], dtype=np.float32).reshape(-1, 1)
 
         instances.update(bboxes=new_boxes)
+        # Albumentations may return boxes that touch or cross the new image border after crop-like
+        # transforms. Ultralytics later expects valid boxes, so convert to absolute xyxy, clip to
+        # the new image, drop zero-area boxes, then return to normalized xywh.
         instances.convert_bbox("xyxy")
         instances.denormalize(*labels["img"].shape[:2][::-1])
         instances.clip(*labels["img"].shape[:2][::-1])
@@ -107,7 +138,17 @@ class AlbumentationsPreTransform:
 
 
 class CustomYOLODatasetMixin:
-    """Mixin that inserts pretransforms after image loading and before YOLO augmentation."""
+    """Mixin that inserts pretransforms after image loading and before YOLO augmentation.
+
+    `YOLODataset.__getitem__()` is effectively:
+
+        return self.transforms(self.get_image_and_label(index))
+
+    Overriding `get_image_and_label()` is the narrowest useful hook because the label dict already
+    has `img`, `cls`, and `instances`, but the normal transform chain has not started yet. That is
+    why this runs before mosaic, and why it also affects the extra images that mosaic/mixup/cutmix
+    request internally.
+    """
 
     def __init__(
         self,
@@ -126,6 +167,8 @@ class CustomYOLODatasetMixin:
     def get_image_and_label(self, index: int) -> dict[str, Any]:
         labels = super().get_image_and_label(index)
         if self.augment:
+            # Debug captures are intentionally taken here, not after `__getitem__()`, so the saved
+            # images prove what the training transform chain receives as pre-mosaic inputs.
             before = copy.deepcopy(labels) if self._should_debug_pretransform() else None
             labels = self.pretransform(labels)
             if before is not None:
@@ -150,6 +193,8 @@ class CustomYOLODatasetMixin:
 def _save_debug_overlay(labels: dict[str, Any], path: Path) -> None:
     import cv2
 
+    # These overlays are diagnostic only. They are not used by training, but they make it easy to
+    # inspect whether spatial pretransforms kept boxes aligned with visible objects.
     image = labels["img"].copy()
     h, w = image.shape[:2]
     boxes = _normalized_xywh_boxes(labels)
@@ -174,6 +219,8 @@ def _normalized_xywh_boxes(labels: dict[str, Any]) -> np.ndarray:
 def _custom_dataset_class():
     from ultralytics.data.dataset import YOLODataset
 
+    # Build the concrete subclass lazily so importing this module does not require Ultralytics to
+    # be installed yet. That keeps basic tooling and tests around helper code lighter.
     class CustomYOLODataset(CustomYOLODatasetMixin, YOLODataset):
         pass
 
@@ -181,7 +228,12 @@ def _custom_dataset_class():
 
 
 class CustomerTrainer:
-    """Detection trainer factory subclass loaded lazily so imports work before Pixi install."""
+    """Factory that returns a lazily defined `DetectionTrainer` subclass.
+
+    Ultralytics accepts `YOLO(...).train(trainer=SomeTrainerClass)`. It then instantiates that
+    class with an `overrides` dict. We remove our custom keys before calling the base trainer
+    because Ultralytics validates override names against its config schema.
+    """
 
     def __new__(cls, *args: Any, **kwargs: Any):
         from ultralytics.models.yolo.detect import DetectionTrainer
@@ -195,6 +247,9 @@ class CustomerTrainer:
                 self.debug_pretransform_samples = int(overrides.pop("debug_pretransform_samples", 0) or 0)
                 regular = overrides.pop("regular_augmentations", None)
                 if regular is not None:
+                    # Current Ultralytics already supports custom post-mosaic Albumentations under
+                    # the `augmentations` hyperparameter. `regular_augmentations` is just a clearer
+                    # public alias so callers can distinguish pre- and regular transforms.
                     overrides["augmentations"] = regular
                 cfg = DEFAULT_CFG if cfg is None else cfg
                 super().__init__(cfg=cfg, overrides=overrides, _callbacks=_callbacks)
@@ -205,9 +260,13 @@ class CustomerTrainer:
 
                 dataset_class = _custom_dataset_class() if mode == "train" else None
                 if dataset_class is None:
+                    # Validation/test data should stay standard. Pretransforms are a training
+                    # augmentation, and changing validation images would corrupt metrics.
                     return super().build_dataset(img_path, mode=mode, batch=batch)
 
                 gs = max(int(unwrap_model(self.model).stride.max()), 32)
+                # This mirrors Ultralytics' `build_yolo_dataset()` call, but swaps in our dataset
+                # subclass for training so `get_image_and_label()` can do the pre-mosaic work.
                 return dataset_class(
                     img_path=img_path,
                     imgsz=self.args.imgsz,
