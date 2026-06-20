@@ -9,7 +9,8 @@ import numpy as np
 import pytest
 from ultralytics.utils.instance import Instances
 
-from custom_trainer import AlbumentationsPreTransform, CustomerTrainer, select_device_from_env
+from custom_trainer import AlbumentationsPreTransform, CustomerTrainer
+from runtime import select_device_from_env
 
 
 def labels(boxes: np.ndarray) -> dict:

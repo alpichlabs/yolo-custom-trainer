@@ -9,7 +9,8 @@ import albumentations as A
 import cv2
 import numpy as np
 
-from custom_trainer import CustomYOLODatasetMixin, select_device_from_env
+from custom_trainer import CustomYOLODatasetMixin
+from runtime import select_device_from_env
 
 
 ROOT = Path("runs/pretransform_debug")

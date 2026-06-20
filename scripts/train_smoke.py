@@ -5,7 +5,8 @@ from __future__ import annotations
 import albumentations as A
 from ultralytics import YOLO
 
-from custom_trainer import CustomerTrainer, select_device_from_env
+from custom_trainer import CustomerTrainer
+from runtime import select_device_from_env
 
 
 def main() -> None:
