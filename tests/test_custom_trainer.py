@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from ultralytics.utils.instance import Instances
 
-from custom_trainer import AlbumentationsPreTransform, CustomerTrainer
+from custom_trainer import AlbumentationsPreTransform, CustomTrainer
 from runtime import select_device_from_env
 
 
@@ -29,6 +29,7 @@ def test_precrop_updates_partial_box_and_removes_outside_box() -> None:
     assert out["img"].shape[:2] == (60, 60)
     assert out["instances"].bboxes.shape == (1, 4)
     np.testing.assert_allclose(out["instances"].bboxes, np.array([[0.5, 0.5, 2 / 3, 2 / 3]], dtype=np.float32), atol=1e-4)
+    assert bool(((out["instances"].bboxes >= 0.0) & (out["instances"].bboxes <= 1.0)).all())
     assert out["cls"].shape == (1, 1)
 
 
@@ -71,7 +72,7 @@ def test_regular_augmentations_alias_maps_to_ultralytics_augmentations() -> None
     captured = {}
 
     with mock.patch("ultralytics.models.yolo.detect.DetectionTrainer.__init__", return_value=None) as base_init:
-        CustomerTrainer(
+        CustomTrainer(
             overrides={
                 "model": "yolo26n.pt",
                 "regular_augmentations": regular,

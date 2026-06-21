@@ -1,4 +1,4 @@
-"""Run baseline vs CustomerTrainer training and compare generated batch images."""
+"""Run baseline vs CustomTrainer training and compare generated batch images."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-from custom_trainer import CustomerTrainer
+from custom_trainer import CustomTrainer
 from runtime import select_device_from_env
 
 
@@ -61,7 +61,7 @@ def _train_custom(device: str | int) -> Path:
     model = YOLO("yolo26n.pt")
     model.train(
         data="coco8.yaml",
-        trainer=CustomerTrainer,
+        trainer=CustomTrainer,
         epochs=1,
         imgsz=320,
         batch=2,

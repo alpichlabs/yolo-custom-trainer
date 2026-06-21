@@ -1,11 +1,11 @@
-"""One-epoch smoke training example for CustomerTrainer."""
+"""One-epoch smoke training example for CustomTrainer."""
 
 from __future__ import annotations
 
 import albumentations as A
 from ultralytics import YOLO
 
-from custom_trainer import CustomerTrainer
+from custom_trainer import CustomTrainer
 from runtime import select_device_from_env
 
 
@@ -16,7 +16,7 @@ def main() -> None:
     model = YOLO("yolo26n.pt")
     model.train(
         data="coco8.yaml",
-        trainer=CustomerTrainer,
+        trainer=CustomTrainer,
         epochs=1,
         imgsz=320,
         batch=2,

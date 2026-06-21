@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-from custom_trainer import CustomerTrainer
+from custom_trainer import CustomTrainer
 from runtime import select_device_from_env
 
 
@@ -62,7 +62,7 @@ def _train_regular(device: str | int) -> Path:
     model = YOLO("yolo26n.pt")
     model.train(
         **_shared_train_kwargs(device),
-        trainer=CustomerTrainer,
+        trainer=CustomTrainer,
         name="regular",
         regular_augmentations=[
             A.ToGray(p=1.0),

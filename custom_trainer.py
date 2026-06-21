@@ -194,6 +194,10 @@ class AlbumentationsPreTransform:
         keep = instances.remove_zero_area_boxes()
         instances.normalize(*labels["img"].shape[:2][::-1])
         instances.convert_bbox("xywh")
+        # Final guardrail: downstream YOLO formatting expects normalized boxes to stay inside
+        # 0..1. Clipping in absolute xyxy space should already guarantee that, but explicit
+        # clipping here protects against small floating-point drift or custom Albumentations output.
+        instances.bboxes[...] = np.clip(instances.bboxes, 0.0, 1.0)
 
         labels["instances"] = instances
         # `keep` accounts for an extra safety filter after clipping. Albumentations already
@@ -299,7 +303,7 @@ def _custom_dataset_class():
     return CustomYOLODataset
 
 
-class CustomerTrainer:
+class CustomTrainer:
     """Factory that returns a lazily defined `DetectionTrainer` subclass.
 
     Ultralytics accepts `YOLO(...).train(trainer=SomeTrainerClass)`. It then instantiates that
@@ -313,7 +317,7 @@ class CustomerTrainer:
         # Define the real trainer subclass inside `__new__` so Ultralytics is imported only when a
         # training run actually requests this trainer. The returned object is still a normal
         # `DetectionTrainer` instance from Ultralytics' point of view.
-        class _CustomerTrainer(DetectionTrainer):
+        class _CustomTrainer(DetectionTrainer):
             def __init__(self, cfg=None, overrides: dict[str, Any] | None = None, _callbacks: dict | None = None):
                 from ultralytics.utils import DEFAULT_CFG
 
@@ -371,4 +375,4 @@ class CustomerTrainer:
                     debug_pretransform_dir=self.save_dir / "pretransform_debug",
                 )
 
-        return _CustomerTrainer(*args, **kwargs)
+        return _CustomTrainer(*args, **kwargs)

@@ -1,6 +1,6 @@
 # YOLO Custom Trainer
 
-This project adds `CustomerTrainer`, a custom Ultralytics YOLO detection trainer that can run Albumentations before Ultralytics mosaic/mixup/cutmix and can also pass regular Albumentations into Ultralytics' built-in post-mosaic hook.
+This project adds `CustomTrainer`, a custom Ultralytics YOLO detection trainer that can run Albumentations before Ultralytics mosaic/mixup/cutmix and can also pass regular Albumentations into Ultralytics' built-in post-mosaic hook.
 
 All commands are Pixi commands. Do not install or run this project with global `python` or `pip`.
 
@@ -49,12 +49,12 @@ The CUDA environment installs `pytorch-cuda=12.4.*`, which is appropriate for CU
 import albumentations as A
 from ultralytics import YOLO
 
-from custom_trainer import CustomerTrainer
+from custom_trainer import CustomTrainer
 
 model = YOLO("yolo26n.pt")
 model.train(
     data="coco8.yaml",
-    trainer=CustomerTrainer,
+    trainer=CustomTrainer,
     pretransform_augmentations=[
         A.RandomSizedBBoxSafeCrop(height=288, width=288, erosion_rate=0.1, p=1.0),
     ],
@@ -75,6 +75,6 @@ Run `pixi run inspect-pretransforms` before training. It creates a synthetic det
 
 When `debug_pretransform_samples` is greater than zero, training saves before/after overlays from the actual training dataset calls to `runs/detect/<run-name>/pretransform_debug/`. These images are captured before Ultralytics mosaic/mixup/cutmix receives the sample, so they show the real pretransform inputs used by the training loop.
 
-Run `pixi run compare-pretransform` to train once without `CustomerTrainer`, once with `CustomerTrainer` and a deterministic `CenterCrop(200, 200)`, then compare the generated Ultralytics `train_batch*.jpg` images. It writes baseline/custom/diff panels and a numeric summary to `runs/compare_pretransform/comparison/`.
+Run `pixi run compare-pretransform` to train once without `CustomTrainer`, once with `CustomTrainer` and a deterministic `CenterCrop(200, 200)`, then compare the generated Ultralytics `train_batch*.jpg` images. It writes baseline/custom/diff panels and a numeric summary to `runs/compare_pretransform/comparison/`.
 
-Run `pixi run compare-regular` to train once without `CustomerTrainer`, once with `CustomerTrainer` and strong `regular_augmentations`, then compare the generated Ultralytics `train_batch*.jpg` images. It writes baseline/regular/diff panels and a numeric summary to `runs/compare_regular_augmentations/comparison/`.
+Run `pixi run compare-regular` to train once without `CustomTrainer`, once with `CustomTrainer` and strong `regular_augmentations`, then compare the generated Ultralytics `train_batch*.jpg` images. It writes baseline/regular/diff panels and a numeric summary to `runs/compare_regular_augmentations/comparison/`.
