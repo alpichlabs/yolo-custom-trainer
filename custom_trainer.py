@@ -167,9 +167,22 @@ class AlbumentationsPreTransform:
         # segment array to keep bbox-only operations safe.
         if instances.segments is None:
             instances.segments = np.zeros((len(cls), 0, 2), dtype=np.float32)
-        # Make the box representation exactly what Albumentations expects:
-        # normalized YOLO xywh, i.e. [x_center, y_center, width, height] in 0..1.
+        # First sanitize source boxes before Albumentations sees them. Some YOLO datasets contain
+        # edge-crossing boxes such as y_center - height / 2 < 0. Albumentations validates input
+        # bboxes strictly and raises errors like "y_min ... is not in the range [0.0, 1.0]" before
+        # it applies any transform. Clipping in absolute xyxy space here makes those boxes legal
+        # while preserving the visible part of each object.
+        instances.convert_bbox("xyxy")
+        instances.denormalize(*image.shape[:2][::-1])
+        instances.clip(*image.shape[:2][::-1])
+        input_keep = instances.remove_zero_area_boxes()
+        cls = cls[input_keep] if len(cls) else cls
+        instances.normalize(*image.shape[:2][::-1])
         instances.convert_bbox("xywh")
+        instances.bboxes[...] = np.clip(instances.bboxes, 0.0, 1.0)
+
+        # Albumentations expects normalized YOLO xywh:
+        # [x_center, y_center, width, height] in 0..1.
         instances.normalize(*image.shape[:2][::-1])
         boxes = instances.bboxes.astype(np.float32)
 

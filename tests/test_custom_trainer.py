@@ -42,6 +42,26 @@ def test_precrop_allows_empty_labels() -> None:
     assert out["cls"].shape == (0, 1)
 
 
+def test_spatial_pretransform_clips_invalid_source_boxes_before_albumentations_validation() -> None:
+    transform = AlbumentationsPreTransform([A.NoOp(p=1.0)])
+    out = transform(
+        labels(
+            np.array(
+                [
+                    [0.50, 0.05, 0.20, 0.20],  # y_min is negative before clipping
+                    [0.50, -0.20, 0.10, 0.10],  # fully outside, removed after clipping
+                ],
+                dtype=np.float32,
+            )
+        )
+    )
+
+    assert out["instances"].bboxes.shape == (1, 4)
+    np.testing.assert_allclose(out["instances"].bboxes, np.array([[0.50, 0.075, 0.20, 0.15]], dtype=np.float32), atol=1e-4)
+    assert bool(((out["instances"].bboxes >= 0.0) & (out["instances"].bboxes <= 1.0)).all())
+    assert out["cls"].shape == (1, 1)
+
+
 def test_image_only_pretransform_preserves_boxes() -> None:
     transform = AlbumentationsPreTransform([A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0, p=1.0)])
     box = np.array([[0.4, 0.4, 0.4, 0.4]], dtype=np.float32)
